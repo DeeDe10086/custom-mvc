@@ -5,6 +5,7 @@ import com.dee.custom.mvcframework.annocation.MyController;
 import com.dee.custom.mvcframework.annocation.MyRequestMapping;
 import com.dee.custom.mvcframework.annocation.MyService;
 import com.dee.custom.demo.dto.MyHandler;
+import com.dee.custom.mvcframework.util.HandlerMappingUtil;
 import org.apache.commons.lang3.StringUtils;
 
 import javax.servlet.ServletConfig;
@@ -33,6 +34,7 @@ public class MyDispatcherServlet extends HttpServlet {
 
     @Override
     public void init(ServletConfig config) throws ServletException {
+        System.out.println("初始化过滤器");
         //加载配置文件
         String contextConfigLocation = config.getInitParameter("contextConfigLocation");
         doLoadConfig(contextConfigLocation);
@@ -234,12 +236,12 @@ public class MyDispatcherServlet extends HttpServlet {
                         rootPath = myRequestMapping.orElse("");
                     }
                     //判断方法上有没有@RequestMapping注解
-                    String finalRootPath = buildFistPath(rootPath);
+                    String finalRootPath = HandlerMappingUtil.buildFistPath(rootPath);
                     List<MyHandler> collect = Arrays.stream(s.getValue().getClass().getMethods())
                             .filter(method -> method.isAnnotationPresent(MyRequestMapping.class))
                             .map(method -> {
                                 Parameter[] parameters = method.getParameters();
-                                String methodPath = buildFistPath(method.getAnnotation(MyRequestMapping.class).value());
+                                String methodPath = HandlerMappingUtil.buildFistPath(method.getAnnotation(MyRequestMapping.class).value());
                                 Map<String, Integer> map = new HashMap<>(parameters.length);
                                 for (int i = 0; i < parameters.length; i++) {
                                     if (parameters[i].getType() == HttpServletRequest.class || parameters[i].getType() == HttpServletResponse.class) {
@@ -300,15 +302,5 @@ public class MyDispatcherServlet extends HttpServlet {
         return args;
     }
 
-    /**
-     * 判断是不是/开头
-     *
-     * @param path
-     */
-    private String buildFistPath(String path) {
-        if (!path.startsWith("/")) {
-            path = "/" + path;
-        }
-        return path;
-    }
+
 }

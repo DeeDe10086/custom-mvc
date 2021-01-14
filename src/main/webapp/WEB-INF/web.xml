@@ -5,6 +5,21 @@
 <web-app>
   <display-name>Archetype Created Web Application</display-name>
 
+  <filter>
+    <filter-name>mySecurity</filter-name>
+    <filter-class>com.dee.custom.mvcframework.servlet.filter.MySecurityFilter</filter-class>
+    <init-param>
+      <param-name>filterPackageScan</param-name>
+      <param-value>com.dee.custom.demo.controller</param-value>
+    </init-param>
+  </filter>
+
+  <filter-mapping>
+    <filter-name>mySecurity</filter-name>
+    <url-pattern>/*</url-pattern>
+  </filter-mapping>
+
+
   <servlet>
     <servlet-name>custommvc</servlet-name>
     <servlet-class>com.dee.custom.mvcframework.servlet.MyDispatcherServlet</servlet-class>
