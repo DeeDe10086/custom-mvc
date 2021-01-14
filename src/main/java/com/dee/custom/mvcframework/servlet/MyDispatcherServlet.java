@@ -4,7 +4,7 @@ import com.dee.custom.mvcframework.annocation.MyAutoWired;
 import com.dee.custom.mvcframework.annocation.MyController;
 import com.dee.custom.mvcframework.annocation.MyRequestMapping;
 import com.dee.custom.mvcframework.annocation.MyService;
-import com.dee.custom.mvcframework.dto.MyHandler;
+import com.dee.custom.demo.dto.MyHandler;
 import org.apache.commons.lang3.StringUtils;
 
 import javax.servlet.ServletConfig;
@@ -23,7 +23,7 @@ import java.util.stream.Collectors;
 
 public class MyDispatcherServlet extends HttpServlet {
 
-    private Properties properties;
+    private Properties properties = new Properties();
 
     private final List<String> packagePaths = new ArrayList<>();
 
@@ -56,8 +56,9 @@ public class MyDispatcherServlet extends HttpServlet {
     protected void doPost(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
         MyHandler myHandler = getMyHandler(req);
 
-        if (myHandler==null) {
+        if (myHandler == null) {
             resp.getWriter().write("404 not found");
+            return;
         }
 
         //获取前端的入参
@@ -75,14 +76,27 @@ public class MyDispatcherServlet extends HttpServlet {
             args[paramIndexMapping.get(stringEntry.getKey())] = StringUtils.join(stringEntry.getValue());
         }
         //把HttpServletRequest，HttpServletResponse放入args
-        if (paramIndexMapping.containsKey(req.getClass().getSimpleName())) {
-            args[paramIndexMapping.get(req.getClass().getSimpleName())] = req;
+        String httpServletRequest = "";
+        String httpServletResponse = "";
+         if (req.getClass().getSimpleName().equals("RequestFacade")) {
+            httpServletRequest = "HttpServletRequest";
+        } else {
+            httpServletRequest = req.getClass().getSimpleName();
         }
-        if (paramIndexMapping.containsKey(resp.getClass().getSimpleName())) {
-            args[paramIndexMapping.get(resp.getClass().getSimpleName())] = resp;
+        if (resp.getClass().getSimpleName().equals("ResponseFacade")) {
+            httpServletResponse = "HttpServletResponse";
+        } else {
+            httpServletResponse = resp.getClass().getSimpleName();
+        }
+
+        if (paramIndexMapping.containsKey(httpServletRequest)) {
+            args[paramIndexMapping.get(httpServletRequest)] = req;
+        }
+        if (paramIndexMapping.containsKey(httpServletResponse)) {
+            args[paramIndexMapping.get(httpServletResponse)] = resp;
         }
         try {
-            myHandler.getMethod().invoke(myHandler.getController(),args);
+            myHandler.getMethod().invoke(myHandler.getController(), args);
         } catch (IllegalAccessException e) {
             e.printStackTrace();
         } catch (InvocationTargetException e) {
@@ -110,14 +124,15 @@ public class MyDispatcherServlet extends HttpServlet {
                 .map(s -> {
                     String packagePath = null;
                     if (s.isDirectory()) {
-                        packagePath = path + "." + s.getName();
+                        packagePath = scanPackage + "." + s.getName();
                         doScan(packagePath);
+                        packagePath = "";
                     } else if (s.getName().endsWith(".class")) {
-                        packagePath = path + "." + s.getName().replaceAll(".class", "");
+                        packagePath = scanPackage + "." + s.getName().replaceAll(".class", "");
                     }
                     return packagePath;
                 })
-                .filter(s -> !s.isEmpty())
+                .filter(s -> StringUtils.isNoneEmpty(s))
                 .collect(Collectors.toList());
         packagePaths.addAll(collect);
     }
@@ -134,19 +149,25 @@ public class MyDispatcherServlet extends HttpServlet {
             for (String packagePath : packagePaths) {
                 Class<?> sourceClass = Class.forName(packagePath);
                 String classSimpleName = sourceClass.getSimpleName();
-                Object targetObject = sourceClass.newInstance();
 
                 //区分类型，看下是@controller注解还是@service注解
                 if (sourceClass.isAnnotationPresent(MyController.class)) {
+                    Object targetObject = sourceClass.newInstance();
                     //首字母小写
                     String s = lowerFirst(classSimpleName);
                     beans.put(s, targetObject);
                 } else if (sourceClass.isAnnotationPresent(MyService.class)) {
+                    String alias;
+                    Object targetObject = sourceClass.newInstance();
                     //判断service注解是否有value，有value的话，用value作为bean的名称
                     MyService annotation = sourceClass.getAnnotation(MyService.class);
-                    Optional<String> alias = Optional.ofNullable(annotation.value().trim());
                     //判断是否有传别名，有的话用别名，没有的话用首字母大写
-                    beans.put(alias.orElseGet(() -> lowerFirst(classSimpleName)), targetObject);
+                    if (StringUtils.isNoneEmpty(annotation.value())) {
+                        alias = annotation.value().trim();
+                    } else {
+                        alias = lowerFirst(classSimpleName);
+                    }
+                    beans.put(alias, targetObject);
 
                     //判断类是否有继承接口，如果有，则按照接口名再存一份bean
                     Class<?>[] interfaces = sourceClass.getInterfaces();
@@ -171,7 +192,6 @@ public class MyDispatcherServlet extends HttpServlet {
 
     }
 
-
     private void doAutoWired() {
         if (beans.isEmpty()) {
             return;
@@ -180,7 +200,7 @@ public class MyDispatcherServlet extends HttpServlet {
         for (Map.Entry<String, Object> stringObjectEntry : beans.entrySet()) {
             //找到带有@MyAutoWired注解的属性
             Object value = stringObjectEntry.getValue();
-            Arrays.stream(value.getClass().getFields())
+            Arrays.stream(value.getClass().getDeclaredFields())
                     .filter(s -> s.isAnnotationPresent(MyAutoWired.class))
                     //从beans里面获取属bean然后赋值给属性
                     .forEach(field -> {
@@ -214,17 +234,21 @@ public class MyDispatcherServlet extends HttpServlet {
                         rootPath = myRequestMapping.orElse("");
                     }
                     //判断方法上有没有@RequestMapping注解
-                    String finalRootPath = rootPath;
+                    String finalRootPath = buildFistPath(rootPath);
                     List<MyHandler> collect = Arrays.stream(s.getValue().getClass().getMethods())
                             .filter(method -> method.isAnnotationPresent(MyRequestMapping.class))
                             .map(method -> {
                                 Parameter[] parameters = method.getParameters();
-                                String methodPath = method.getAnnotation(MyRequestMapping.class).value();
+                                String methodPath = buildFistPath(method.getAnnotation(MyRequestMapping.class).value());
                                 Map<String, Integer> map = new HashMap<>(parameters.length);
                                 for (int i = 0; i < parameters.length; i++) {
-                                    map.put(parameters[0].getName(),i);
+                                    if (parameters[i].getType() == HttpServletRequest.class || parameters[i].getType() == HttpServletResponse.class) {
+                                        map.put(parameters[i].getType().getSimpleName(), i);
+                                    } else {
+                                        map.put(parameters[i].getName(), i);
+                                    }
                                 }
-                                MyHandler myHandler = new MyHandler(s.getValue(),method,Pattern.compile(sb.append(finalRootPath).append(methodPath).toString()),map);
+                                MyHandler myHandler = new MyHandler(s.getValue(), method, Pattern.compile(sb.append(finalRootPath).append(methodPath).toString()), map);
                                 return myHandler;
                             }).collect(Collectors.toList());
                     return collect;
@@ -236,6 +260,7 @@ public class MyDispatcherServlet extends HttpServlet {
 
     /**
      * 获取自定义handler
+     *
      * @param req
      */
     private MyHandler getMyHandler(HttpServletRequest req) {
@@ -247,6 +272,7 @@ public class MyDispatcherServlet extends HttpServlet {
                 .findFirst();
         return first.orElse(null);
     }
+
     /**
      * 首字母小写
      *
@@ -265,11 +291,24 @@ public class MyDispatcherServlet extends HttpServlet {
 
     /**
      * 构建invoke入参
+     *
      * @param paramIndexMapping
      * @return
      */
     private Object[] getArgs(Map<String, Integer> paramIndexMapping) {
         Object[] args = new Object[paramIndexMapping.size()];
         return args;
+    }
+
+    /**
+     * 判断是不是/开头
+     *
+     * @param path
+     */
+    private String buildFistPath(String path) {
+        if (!path.startsWith("/")) {
+            path = "/" + path;
+        }
+        return path;
     }
 }

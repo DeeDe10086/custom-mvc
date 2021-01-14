@@ -1,4 +1,4 @@
-package com.dee.custom.mvcframework.dto;
+package com.dee.custom.demo.dto;
 
 import java.lang.reflect.Method;
 import java.util.Map;

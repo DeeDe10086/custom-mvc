@@ -4,12 +4,13 @@
 
 <web-app>
   <display-name>Archetype Created Web Application</display-name>
+
   <servlet>
     <servlet-name>custommvc</servlet-name>
     <servlet-class>com.dee.custom.mvcframework.servlet.MyDispatcherServlet</servlet-class>
     <init-param>
       <param-name>contextConfigLocation</param-name>
-      <param-value>classpath:springMVC.properties</param-value>
+      <param-value>springMVC.properties</param-value>
     </init-param>
   </servlet>
   
