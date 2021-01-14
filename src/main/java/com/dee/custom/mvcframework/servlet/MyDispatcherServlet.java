@@ -5,6 +5,7 @@ import com.dee.custom.mvcframework.annocation.MyController;
 import com.dee.custom.mvcframework.annocation.MyRequestMapping;
 import com.dee.custom.mvcframework.annocation.MyService;
 import com.dee.custom.mvcframework.dto.MyHandler;
+import org.apache.commons.lang3.StringUtils;
 
 import javax.servlet.ServletConfig;
 import javax.servlet.ServletException;
@@ -14,6 +15,7 @@ import javax.servlet.http.HttpServletResponse;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
+import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Parameter;
 import java.util.*;
 import java.util.regex.Pattern;
@@ -47,14 +49,46 @@ public class MyDispatcherServlet extends HttpServlet {
 
     @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
-        super.doGet(req, resp);
+        doPost(req, resp);
     }
 
     @Override
     protected void doPost(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
-        super.doPost(req, resp);
-    }
+        MyHandler myHandler = getMyHandler(req);
 
+        if (myHandler==null) {
+            resp.getWriter().write("404 not found");
+        }
+
+        //获取前端的入参
+        Map<String, String[]> parameterMap = req.getParameterMap();
+        //需要调用方法的参数
+        Object[] args = new Object[myHandler.getParamIndexMapping().size()];
+        //当前获取到的handler存的params位置
+        Map<String, Integer> paramIndexMapping = myHandler.getParamIndexMapping();
+
+        //遍历parameterMap所存的参数
+        for (Map.Entry<String, String[]> stringEntry : parameterMap.entrySet()) {
+            if (!paramIndexMapping.containsKey(stringEntry.getKey())) {
+                continue;
+            }
+            args[paramIndexMapping.get(stringEntry.getKey())] = StringUtils.join(stringEntry.getValue());
+        }
+        //把HttpServletRequest，HttpServletResponse放入args
+        if (paramIndexMapping.containsKey(req.getClass().getSimpleName())) {
+            args[paramIndexMapping.get(req.getClass().getSimpleName())] = req;
+        }
+        if (paramIndexMapping.containsKey(resp.getClass().getSimpleName())) {
+            args[paramIndexMapping.get(resp.getClass().getSimpleName())] = resp;
+        }
+        try {
+            myHandler.getMethod().invoke(myHandler.getController(),args);
+        } catch (IllegalAccessException e) {
+            e.printStackTrace();
+        } catch (InvocationTargetException e) {
+            e.printStackTrace();
+        }
+    }
 
     private void doLoadConfig(String contextConfigLocation) {
         InputStream resourceAsStream = this.getClass().getClassLoader().getResourceAsStream(contextConfigLocation);
@@ -201,6 +235,19 @@ public class MyDispatcherServlet extends HttpServlet {
     }
 
     /**
+     * 获取自定义handler
+     * @param req
+     */
+    private MyHandler getMyHandler(HttpServletRequest req) {
+        if (handlers.isEmpty()) {
+            return null;
+        }
+        Optional<MyHandler> first = handlers.stream()
+                .filter(s -> s.getPattern().matcher(req.getRequestURI()).matches())
+                .findFirst();
+        return first.orElse(null);
+    }
+    /**
      * 首字母小写
      *
      * @param str
@@ -216,4 +263,13 @@ public class MyDispatcherServlet extends HttpServlet {
         return String.valueOf(chars);
     }
 
+    /**
+     * 构建invoke入参
+     * @param paramIndexMapping
+     * @return
+     */
+    private Object[] getArgs(Map<String, Integer> paramIndexMapping) {
+        Object[] args = new Object[paramIndexMapping.size()];
+        return args;
+    }
 }
