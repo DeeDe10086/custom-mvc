@@ -16,7 +16,6 @@ public class HandlerMappingUtil {
         }
         return path;
     }
-
     /**
      * 组装mapping
      * @param mapping

@@ -80,7 +80,7 @@ public class MyDispatcherServlet extends HttpServlet {
         //把HttpServletRequest，HttpServletResponse放入args
         String httpServletRequest = "";
         String httpServletResponse = "";
-         if (req.getClass().getSimpleName().equals("RequestFacade")) {
+        if (req.getClass().getSimpleName().equals("RequestFacade")) {
             httpServletRequest = "HttpServletRequest";
         } else {
             httpServletRequest = req.getClass().getSimpleName();

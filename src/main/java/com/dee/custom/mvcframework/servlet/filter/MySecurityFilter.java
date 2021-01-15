@@ -81,6 +81,9 @@ public class MySecurityFilter implements Filter {
     @Override
     public void doFilter(ServletRequest servletRequest, ServletResponse servletResponse, FilterChain filterChain) throws IOException, ServletException {
         String[] attributeNames = servletRequest.getParameterValues("username");
+        /**
+         * 强转一下
+         */
         HttpServletRequest httpServletRequest = (HttpServletRequest)servletRequest;
         HttpServletResponse httpServletResponse = (HttpServletResponse)servletResponse;
         String requestURI = httpServletRequest.getRequestURI();
