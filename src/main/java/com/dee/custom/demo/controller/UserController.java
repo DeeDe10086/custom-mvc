@@ -12,6 +12,7 @@ import java.io.IOException;
 
 @MyController
 @MyRequestMapping("demo")
+@MySecurity({"wangwu"})
 public class UserController {
 
     @MyAutoWired
@@ -19,12 +20,22 @@ public class UserController {
 
     @MyRequestMapping("user")
     @MySecurity({"zhangsan","lisi"})
-    public String getUserName(HttpServletRequest request, HttpServletResponse response,String name){
+    public String getUserName(HttpServletRequest request, HttpServletResponse response,String username){
         try {
-            response.getWriter().write("success from:["+request.getRequestURI()+"]handler");
+            response.getWriter().write("["+username+"]success from:["+request.getRequestURI()+"]handler");
         } catch (IOException e) {
             e.printStackTrace();
         }
-        return userService.getName(name);
+        return userService.getName(username);
+    }
+
+    @MyRequestMapping("user2")
+    public String getUserName2(HttpServletRequest request, HttpServletResponse response,String username){
+        try {
+            response.getWriter().write("["+username+"]success from:["+request.getRequestURI()+"]handler");
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        return userService.getName(username);
     }
 }

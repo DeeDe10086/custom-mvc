@@ -229,7 +229,6 @@ public class MyDispatcherServlet extends HttpServlet {
                 .filter(s -> s.getValue().getClass().isAnnotationPresent(MyController.class))
                 .map(s -> {
                     //判断类上面有没有@MyRequestMapping注解
-                    StringBuilder sb = new StringBuilder();
                     String rootPath = null;
                     if (s.getValue().getClass().isAnnotationPresent(MyRequestMapping.class)) {
                         Optional<String> myRequestMapping = Optional.of(s.getValue().getClass().getAnnotation(MyRequestMapping.class).value());
@@ -243,7 +242,9 @@ public class MyDispatcherServlet extends HttpServlet {
                                 Parameter[] parameters = method.getParameters();
                                 String methodPath = HandlerMappingUtil.buildFistPath(method.getAnnotation(MyRequestMapping.class).value());
                                 Map<String, Integer> map = new HashMap<>(parameters.length);
+                                StringBuilder sb = null;
                                 for (int i = 0; i < parameters.length; i++) {
+                                    sb = new StringBuilder();
                                     if (parameters[i].getType() == HttpServletRequest.class || parameters[i].getType() == HttpServletResponse.class) {
                                         map.put(parameters[i].getType().getSimpleName(), i);
                                     } else {
